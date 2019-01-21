@@ -236,7 +236,9 @@
               :record="record"
               :filename="filename"
               :headers="headers"
-              :upload-url="uploadUrl"/>
+              :upload-url="uploadUrl"
+              :method="method"
+              :form-key="formKey"/>
         </div>
       </div>
 
@@ -265,6 +267,9 @@
 
       showDownloadButton : { type: Boolean, default: true },
       showUploadButton   : { type: Boolean, default: true },
+
+      method             : { type: String, default: 'post' },
+      formKey            : { type: String, default: 'audio' },
 
       micFailed        : { type: Function },
       beforeRecording  : { type: Function },
