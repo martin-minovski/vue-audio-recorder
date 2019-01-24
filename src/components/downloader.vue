@@ -29,7 +29,7 @@
 
         const link = document.createElement('a')
         link.href = this.record.url
-        link.download = `${this.filename}.mp3`
+        link.download = `${this.filename}.wav`
         link.click()
       }
     }

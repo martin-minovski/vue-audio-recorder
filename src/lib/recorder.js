@@ -1,4 +1,5 @@
 import Encoder from './encoder'
+import Resampler from './resampler'
 import { convertTimeMMSS } from './utils'
 
 export default class {
@@ -39,7 +40,7 @@ export default class {
              .catch(this._micError.bind(this))
     this.isPause = false
     this.isRecording = true
-    this.lameEncoder = new Encoder({
+    this.wavEncoder = new Encoder({
       bitRate    : this.bitRate,
       sampleRate : this.sampleRate
     })
@@ -51,7 +52,7 @@ export default class {
     this.processor.disconnect()
     this.context.close()
 
-    const record = this.lameEncoder.finish()
+    const record = this.wavEncoder.finish()
     record.duration = convertTimeMMSS(this.duration)
     this.records.push(record)
 
@@ -90,19 +91,22 @@ export default class {
     this.input      = this.context.createMediaStreamSource(stream)
     this.processor  = this.context.createScriptProcessor(this.bufferSize, 1, 1)
     this.stream     = stream
+    this.clientSampleRate = this.context.sampleRate
+    this.resampler  = new Resampler(this.clientSampleRate, this.sampleRate, 1, this.bufferSize)
 
     this.processor.onaudioprocess = (ev) => {
       const sample = ev.inputBuffer.getChannelData(0)
+      const resampled = this.resampler.resampler(sample);
       let sum = 0.0
 
-      this.lameEncoder.encode(sample)
+      this.wavEncoder.encode(resampled)
 
-      for (let i = 0; i < sample.length; ++i) {
-        sum += sample[i] * sample[i]
+      for (let i = 0; i < resampled.length; ++i) {
+        sum += resampled[i] * resampled[i]
       }
 
       this.duration = parseFloat(this._duration) + parseFloat(this.context.currentTime.toFixed(2))
-      this.volume = Math.sqrt(sum / sample.length).toFixed(2)
+      this.volume = Math.sqrt(sum / resampled.length).toFixed(2)
     }
 
     this.input.connect(this.processor)

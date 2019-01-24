@@ -1,49 +1,55 @@
-import { Mp3Encoder } from 'lamejs'
-
 export default class {
+  setString(view, offset, str) {
+    let len = str.length;
+    for (let i = 0; i < len; ++i)
+      view.setUint8(offset + i, str.charCodeAt(i));
+  }
   constructor(config) {
-    this.bitRate    = config.bitRate
-    this.sampleRate = config.sampleRate
-    this.dataBuffer = []
-    this.encoder    = new Mp3Encoder(1, this.sampleRate, this.bitRate)
+    this.min = Math.min
+    this.max = Math.max
+    this.sampleRate = config.sampleRate;
+    this.numSamples = 0;
+    this.dataViews = [];
   }
-
-  encode(arrayBuffer) {
-    const maxSamples = 1152
-    const samples    = this._convertBuffer(arrayBuffer)
-    let remaining    = samples.length
-
-    for (let i = 0; remaining >= 0; i += maxSamples) {
-      const left = samples.subarray(i, i + maxSamples)
-      const buffer = this.encoder.encodeBuffer(left)
-      this.dataBuffer.push(new Int8Array(buffer))
-      remaining -= maxSamples
+  encode(buffer) {
+    let len = buffer.length,
+      view = new DataView(new ArrayBuffer(len * 2)),
+      offset = 0;
+    for (let i = 0; i < len; ++i) {
+      let x = buffer[i] * 0x7fff;
+      view.setInt16(offset, x < 0 ? this.max(x, -0x8000) : this.min(x, 0x7fff), true);
+      offset += 2;
     }
+    this.dataViews.push(view);
+    this.numSamples += len;
   }
-
   finish() {
-    this.dataBuffer.push(this.encoder.flush())
-    const blob = new Blob(this.dataBuffer, { type: 'audio/mp3' })
-    this.dataBuffer = []
-
+    let dataSize = this.numSamples * 2
+    let view = new DataView(new ArrayBuffer(44));
+    this.setString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    this.setString(view, 8, 'WAVE');
+    this.setString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, this.sampleRate, true);
+    view.setUint32(28, this.sampleRate * 4, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    this.setString(view, 36, 'data');
+    view.setUint32(40, dataSize, true);
+    this.dataViews.unshift(view);
+    let blob = new Blob(this.dataViews, { type: 'audio/wav' });
+    this.cleanup();
     return {
       id    : Date.now(),
       blob  : blob,
       url   : URL.createObjectURL(blob)
     }
   }
-
-  _floatTo16BitPCM(input, output) {
-    for (let i = 0; i < input.length; i++) {
-      const s = Math.max(-1, Math.min(1, input[i]))
-      output[i] = (s < 0 ? s * 0x8000 : s * 0x7FFF)
-    }
-  }
-
-  _convertBuffer(arrayBuffer) {
-    const data = new Float32Array(arrayBuffer)
-    const out = new Int16Array(arrayBuffer.length)
-    this._floatTo16BitPCM(data, out)
-    return out
+  cleanup() {
+    console.log(this.dataViews)
+    delete this.dataViews;
   }
 }

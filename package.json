@@ -8,9 +8,7 @@
     "dev": "webpack-dev-server --env.NODE_ENV=development --mode development --open --hot --https",
     "build": "webpack --env.NODE_ENV=production --mode production --progress --hide-modules"
   },
-  "dependencies": {
-    "lamejs": "^1.2.0"
-  },
+  "dependencies": {},
   "browserslist": [
     "> 1%",
     "last 2 versions",
